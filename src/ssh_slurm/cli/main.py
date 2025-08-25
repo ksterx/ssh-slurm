@@ -65,6 +65,28 @@ def main():
         update_parser.add_argument("--port", type=int, help="SSH port")
         update_parser.add_argument("--description", help="Profile description")
 
+        # Environment variable management
+        env_parser = subparsers.add_parser(
+            "env", help="Manage environment variables for a profile"
+        )
+        env_parser.add_argument("name", help="Profile name")
+        env_subparsers = env_parser.add_subparsers(
+            dest="env_command", help="Environment variable commands"
+        )
+
+        env_set_parser = env_subparsers.add_parser(
+            "set", help="Set environment variable"
+        )
+        env_set_parser.add_argument("key", help="Environment variable name")
+        env_set_parser.add_argument("value", help="Environment variable value")
+
+        env_unset_parser = env_subparsers.add_parser(
+            "unset", help="Unset environment variable"
+        )
+        env_unset_parser.add_argument("key", help="Environment variable name")
+
+        env_subparsers.add_parser("list", help="List environment variables")
+
         # Remove 'profile' from argv and parse
         sys.argv = ["ssb profile"] + sys.argv[2:]
         args = parser.parse_args()

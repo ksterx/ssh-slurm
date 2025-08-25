@@ -30,6 +30,8 @@ def handle_profile_command(args):
             cmd_show(args, config_manager)
         elif args.profile_command == "update":
             cmd_update(args, config_manager)
+        elif args.profile_command == "env":
+            cmd_env(args, config_manager)
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -241,3 +243,63 @@ def cmd_update(args, config_manager: ConfigManager):
     else:
         print(f"Error: Failed to update profile '{args.name}'", file=sys.stderr)
         sys.exit(1)
+
+
+def cmd_env(args, config_manager: ConfigManager):
+    """Manage environment variables for a profile"""
+    if not args.env_command:
+        print("Error: No environment command specified", file=sys.stderr)
+        print("Available commands: set, unset, list", file=sys.stderr)
+        sys.exit(1)
+
+    profile = config_manager.get_profile(args.name)
+    if not profile:
+        print(f"Error: Profile '{args.name}' not found", file=sys.stderr)
+        sys.exit(1)
+
+    if args.env_command == "set":
+        cmd_env_set(args, config_manager, profile)
+    elif args.env_command == "unset":
+        cmd_env_unset(args, config_manager, profile)
+    elif args.env_command == "list":
+        cmd_env_list(args, config_manager, profile)
+    else:
+        print(
+            f"Error: Unknown environment command '{args.env_command}'", file=sys.stderr
+        )
+        sys.exit(1)
+
+
+def cmd_env_set(args, config_manager: ConfigManager, profile):
+    """Set an environment variable for a profile"""
+    if profile.env_vars is None:
+        profile.env_vars = {}
+
+    profile.env_vars[args.key] = args.value
+    config_manager.update_profile(args.name, env_vars=profile.env_vars)
+    print(f"Environment variable '{args.key}' set for profile '{args.name}'")
+
+
+def cmd_env_unset(args, config_manager: ConfigManager, profile):
+    """Unset an environment variable for a profile"""
+    if profile.env_vars is None or args.key not in profile.env_vars:
+        print(
+            f"Error: Environment variable '{args.key}' not found in profile '{args.name}'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    del profile.env_vars[args.key]
+    config_manager.update_profile(args.name, env_vars=profile.env_vars)
+    print(f"Environment variable '{args.key}' removed from profile '{args.name}'")
+
+
+def cmd_env_list(args, config_manager: ConfigManager, profile):
+    """List environment variables for a profile"""
+    if not profile.env_vars:
+        print(f"No environment variables set for profile '{args.name}'")
+        return
+
+    print(f"Environment variables for profile '{args.name}':")
+    for key, value in profile.env_vars.items():
+        print(f"  {key}={value}")

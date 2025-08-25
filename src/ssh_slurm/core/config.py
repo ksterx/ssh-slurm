@@ -13,6 +13,7 @@ class ServerProfile:
     port: int = 22
     description: str | None = None
     ssh_host: str | None = None  # SSH config host name if using SSH config
+    env_vars: dict[str, str] | None = None  # Environment variables for this profile
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -106,7 +107,7 @@ class ConfigManager:
             profile_data = self.config_data["profiles"][name]
 
             for key, value in kwargs.items():
-                if key in profile_data:
+                if value is not None:  # Only update non-None values
                     profile_data[key] = value
 
             self.save_config()

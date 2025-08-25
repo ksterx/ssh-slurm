@@ -219,6 +219,21 @@ def main():
 
         env_vars = {}
 
+        # Add profile-specific environment variables first (if using profile)
+        current_profile = None
+        if args.profile:
+            current_profile = config_manager.get_profile(args.profile)
+        elif not any([args.host, args.hostname]):
+            # Using current profile as fallback
+            current_profile = config_manager.get_current_profile()
+
+        if current_profile and current_profile.env_vars:
+            env_vars.update(current_profile.env_vars)
+            if args.verbose:
+                print(
+                    f"Added {len(current_profile.env_vars)} environment variables from profile"
+                )
+
         # Auto-detect common environment variables
         common_env_vars = [
             "HF_TOKEN",
