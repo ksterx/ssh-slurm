@@ -1,0 +1,18 @@
+[project]
+name = "ssh-slurm"
+version = "0.1.0"
+description = "Submit and monitor SLURM jobs via SSH"
+readme = "README.md"
+authors = [{ name = "ksterx", email = "kostonerx@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = ["paramiko>=4.0.0"]
+
+[project.scripts]
+ssb = "ssh_slurm.cli.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["ruff>=0.12.10"]
