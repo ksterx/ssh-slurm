@@ -57,6 +57,7 @@ class TestServerProfile:
             "port": 2222,
             "description": "Test server",
             "ssh_host": None,
+            "env_vars": None,
         }
 
         assert profile.to_dict() == expected
