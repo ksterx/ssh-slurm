@@ -5,8 +5,8 @@ import logging
 import sys
 from pathlib import Path
 
-from ..core.config import ConfigManager
 from ..core.client import SSHSlurmClient
+from ..core.config import ConfigManager
 from ..core.ssh_config import get_ssh_config_host
 
 
@@ -44,6 +44,7 @@ def main():
     job_group.add_argument("--job-name", help="Job name")
     job_group.add_argument(
         "--poll-interval",
+        "-i",
         type=int,
         default=10,
         help="Job status polling interval in seconds (default: 10)",
@@ -99,7 +100,7 @@ def main():
             if not ssh_host:
                 print(f"Error: SSH host '{args.host}' not found", file=sys.stderr)
                 sys.exit(1)
-            
+
             connection_params = {
                 "hostname": ssh_host.effective_hostname,
                 "username": ssh_host.effective_user,
@@ -107,19 +108,22 @@ def main():
                 "port": ssh_host.effective_port,
                 "proxy_jump": ssh_host.proxy_jump,
             }
-            
+
         elif args.profile:
             # Use saved profile
             profile = config_manager.get_profile(args.profile)
             if not profile:
                 print(f"Error: Profile '{args.profile}' not found", file=sys.stderr)
                 sys.exit(1)
-            
+
             if profile.ssh_host:
                 # Profile uses SSH config host
                 ssh_host = get_ssh_config_host(profile.ssh_host, args.ssh_config)
                 if not ssh_host:
-                    print(f"Error: SSH host '{profile.ssh_host}' not found", file=sys.stderr)
+                    print(
+                        f"Error: SSH host '{profile.ssh_host}' not found",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
                 connection_params = {
                     "hostname": ssh_host.effective_hostname,
@@ -136,14 +140,14 @@ def main():
                     "key_filename": profile.key_filename,
                     "port": profile.port,
                 }
-                
+
         elif all([args.hostname, args.username, args.key_file]):
             # Use direct parameters
             key_path = config_manager.expand_path(args.key_file)
             if not Path(key_path).exists():
                 print(f"Error: SSH key file '{key_path}' not found", file=sys.stderr)
                 sys.exit(1)
-            
+
             connection_params = {
                 "hostname": args.hostname,
                 "username": args.username,
@@ -158,7 +162,10 @@ def main():
                     # Profile uses SSH config host
                     ssh_host = get_ssh_config_host(profile.ssh_host, args.ssh_config)
                     if not ssh_host:
-                        print(f"Error: SSH host '{profile.ssh_host}' not found", file=sys.stderr)
+                        print(
+                            f"Error: SSH host '{profile.ssh_host}' not found",
+                            file=sys.stderr,
+                        )
                         sys.exit(1)
                     connection_params = {
                         "hostname": ssh_host.effective_hostname,
@@ -177,40 +184,98 @@ def main():
                     }
             else:
                 print("Error: No connection method specified", file=sys.stderr)
-                print("Use --host, --profile, or provide --hostname/--username/--key-file", file=sys.stderr)
+                print(
+                    "Use --host, --profile, or provide --hostname/--username/--key-file",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
-        # Create client and submit job
-        client = SSHSlurmClient(**connection_params)
-        
         # Process environment variables
+        import os
+
         env_vars = {}
+
+        # Auto-detect common environment variables
+        common_env_vars = [
+            "HF_TOKEN",
+            "HUGGING_FACE_HUB_TOKEN",
+            "WANDB_API_KEY",
+            "WANDB_ENTITY",
+            "WANDB_PROJECT",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "CUDA_VISIBLE_DEVICES",
+            "HF_HOME",
+            "HF_HUB_CACHE",
+            "TRANSFORMERS_CACHE",
+            "TORCH_HOME",
+        ]
+
+        for key in common_env_vars:
+            if key in os.environ:
+                env_vars[key] = os.environ[key]
+                if args.verbose:
+                    print(f"Auto-detected environment variable: {key}")
+
+        # Add explicitly provided environment variables
         if args.env:
             for env_var in args.env:
                 if "=" not in env_var:
-                    print(f"Error: Invalid environment variable format: {env_var}", file=sys.stderr)
+                    print(
+                        f"Error: Invalid environment variable format: {env_var}",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
                 key, value = env_var.split("=", 1)
                 env_vars[key] = value
-        
+
+        # Add explicitly requested local environment variables
         if args.env_local:
-            import os
             for key in args.env_local:
                 if key in os.environ:
                     env_vars[key] = os.environ[key]
                 else:
-                    print(f"Warning: Local environment variable '{key}' not found", file=sys.stderr)
+                    print(
+                        f"Warning: Local environment variable '{key}' not found",
+                        file=sys.stderr,
+                    )
 
-        # Submit job
-        client.submit_job(
-            script_path=str(script_path),
-            job_name=args.job_name,
-            env_vars=env_vars,
-            monitor=not args.no_monitor,
-            poll_interval=args.poll_interval,
-            timeout=args.timeout,
-            cleanup=not args.no_cleanup,
-        )
+        # Create client and connect
+        client = SSHSlurmClient(env_vars=env_vars, **connection_params)
+
+        if not client.connect():
+            print("Error: Failed to connect to server", file=sys.stderr)
+            print(
+                "Please check your connection parameters and SSH credentials",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        try:
+            # Submit job
+            job = client.submit_sbatch_file(
+                script_path=str(script_path),
+                job_name=args.job_name,
+                cleanup=not args.no_cleanup,
+            )
+
+            if not job:
+                print("Error: Failed to submit job", file=sys.stderr)
+                sys.exit(1)
+
+            print(f"Job submitted: {job.job_id}")
+
+            # Monitor job if requested
+            if not args.no_monitor:
+                print(f"Monitoring job {job.job_id}...")
+                final_status = client.monitor_job(
+                    job, poll_interval=args.poll_interval, timeout=args.timeout
+                )
+                print(f"Job {job.job_id} finished with status: {final_status}")
+
+        finally:
+            # Always disconnect
+            client.disconnect()
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

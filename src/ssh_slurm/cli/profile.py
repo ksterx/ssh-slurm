@@ -47,11 +47,23 @@ def cmd_add(args, config_manager: ConfigManager):
             )
             sys.exit(1)
 
+        # Verify required SSH config values
+        if not ssh_host.effective_user:
+            print(
+                f"Error: No username found for SSH host '{args.ssh_host}' in SSH config",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        if not ssh_host.effective_identity_file:
+            print(
+                f"Error: No identity file found for SSH host '{args.ssh_host}' in SSH config",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         # Verify key file exists
-        if (
-            ssh_host.effective_identity_file
-            and not Path(ssh_host.effective_identity_file).exists()
-        ):
+        if not Path(ssh_host.effective_identity_file).exists():
             print(
                 f"Error: SSH key file '{ssh_host.effective_identity_file}' not found",
                 file=sys.stderr,

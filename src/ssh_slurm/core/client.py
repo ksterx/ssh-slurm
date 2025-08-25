@@ -20,6 +20,7 @@ class SlurmJob:
     error_file: str | None = None
     script_path: str | None = None  # Path to script on server
     is_local_script: bool = False  # Whether script was uploaded from local
+    _cleanup: bool = False  # Whether to cleanup temporary files
 
 
 class SSHSlurmClient:
@@ -46,8 +47,10 @@ class SSHSlurmClient:
         self.proxy_client: ProxySSHClient | None = None
         self.logger = logging.getLogger(__name__)
         self.temp_dir = "/tmp/ssh-slurm"
-        self._slurm_path = None  # Cache for SLURM command paths
-        self._slurm_env = None  # Cache for SLURM environment variables
+        self._slurm_path: str | None = None  # Cache for SLURM command paths
+        self._slurm_env: dict[str, str] | None = (
+            None  # Cache for SLURM environment variables
+        )
         self.custom_env_vars = env_vars or {}  # Custom environment variables to pass
 
     def connect(self) -> bool:
@@ -237,9 +240,6 @@ class SSHSlurmClient:
     def _initialize_slurm_paths(self) -> None:
         """Initialize SLURM command paths by checking common locations and environment"""
         try:
-            # First, try to find SLURM commands with proper environment
-            commands_to_check = ["sbatch", "squeue", "sacct"]
-
             # Try with login shell environment
             stdout, stderr, exit_code = self.execute_command(
                 "bash -l -c 'echo $PATH' 2>/dev/null || echo ''"
@@ -512,7 +512,8 @@ class SSHSlurmClient:
     ) -> SlurmJob | None:
         """Submit a sbatch job from a script file (local or remote)"""
         script_path_str = str(script_path)
-        is_local_file = not script_path_str.startswith("/")
+        # Check if file exists locally first (handles both relative and absolute local paths)
+        is_local_file = Path(script_path).exists()
         remote_script_path = None
 
         try:

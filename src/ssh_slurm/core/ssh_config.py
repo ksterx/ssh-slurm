@@ -52,7 +52,7 @@ class SSHConfigParser:
             return
 
         current_host = None
-        current_config = {}
+        current_config: dict[str, str] = {}
 
         for line in content.split("\n"):
             line = line.strip()
