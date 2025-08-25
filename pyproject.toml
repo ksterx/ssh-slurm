@@ -1,6 +1,6 @@
 [project]
 name = "ssh-slurm"
-version = "0.1.0"
+version = "0.2.0"
 description = "Submit and monitor SLURM jobs via SSH"
 readme = "README.md"
 authors = [{ name = "ksterx", email = "kostonerx@gmail.com" }]
