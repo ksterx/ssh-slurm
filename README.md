@@ -71,7 +71,7 @@ ssb my_script.sh --hostname dgx.example.com --username user --key-file ~/.ssh/id
   <img src="assets/screenshot.png" width="700">
 </div>
 
-If a job fails, you'll automatically see detailed logs:
+If a job fails, you'll automatically see detailed logs (You need to set `SLURM_LOG_DIR`):
 
 <div align="center">
   <img src="assets/error.png" width="700">

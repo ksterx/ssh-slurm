@@ -644,6 +644,7 @@ class SSHSlurmClient:
                 # Alternative patterns
                 f"job_{job_id}.log",
                 f"{job_id}.log",
+                f"*_{job_id}.out",
             ]
 
             # Remove None values
