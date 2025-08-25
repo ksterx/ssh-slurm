@@ -1,5 +1,10 @@
 # SSH SLURM Client
 
+[![PyPI](https://img.shields.io/pypi/v/ssh-slurm)](https://pypi.org/project/ssh-slurm/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Actions Status](https://github.com/ksterx/ssh-slurm/workflows/CI/badge.svg)](https://github.com/ksterx/ssh-slurm/actions)
+
 A modern Python library and CLI tool for submitting and monitoring SLURM jobs on remote servers via SSH with a beautiful, user-friendly interface.
 
 ## ✨ Features

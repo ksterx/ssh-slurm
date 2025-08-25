@@ -102,7 +102,7 @@ No manual `--env-local` flags required for these common variables.
 ## Dependencies
 
 - **paramiko**: SSH client functionality
-- **Python 3.13+**: Required runtime version
+- **Python 3.11+**: Required runtime version
 
 ## Configuration Files
 
