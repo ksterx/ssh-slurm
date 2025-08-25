@@ -34,6 +34,7 @@ class SSHSlurmClient:
         proxy_jump: str | None = None,
         ssh_config_path: str | None = None,
         env_vars: dict | None = None,
+        verbose: bool = False,
     ):
         self.hostname = hostname
         self.username = username
@@ -52,6 +53,7 @@ class SSHSlurmClient:
             None  # Cache for SLURM environment variables
         )
         self.custom_env_vars = env_vars or {}  # Custom environment variables to pass
+        self.verbose = verbose  # Control detailed logging
 
     def connect(self) -> bool:
         try:
@@ -105,7 +107,8 @@ class SSHSlurmClient:
             connection_info = f"{self.hostname}"
             if self.proxy_jump:
                 connection_info += f" (via {self.proxy_jump})"
-            self.logger.info(f"Successfully connected to {connection_info}")
+            if self.verbose:
+                self.logger.info(f"Successfully connected to {connection_info}")
             return True
 
         except Exception as e:
@@ -126,7 +129,8 @@ class SSHSlurmClient:
         connection_info = f"{self.hostname}"
         if self.proxy_jump:
             connection_info += f" (via {self.proxy_jump})"
-        self.logger.info(f"Disconnected from {connection_info}")
+        if self.verbose:
+            self.logger.info(f"Disconnected from {connection_info}")
 
     def execute_command(self, command: str) -> tuple[str, str, int]:
         if not self.ssh_client:
@@ -161,7 +165,8 @@ class SSHSlurmClient:
             # Make the uploaded script executable if it's a script
             if local_path_obj.suffix in [".sh", ".py", ".pl", ".r"]:
                 self.execute_command(f"chmod +x {remote_path}")
-            self.logger.info(f"Uploaded {local_path} to {remote_path}")
+            if self.verbose:
+                self.logger.info(f"Uploaded {local_path} to {remote_path}")
             return remote_path
         except Exception as e:
             self.logger.error(f"Failed to upload file: {e}")
@@ -171,7 +176,8 @@ class SSHSlurmClient:
         """Remove a file from the server"""
         try:
             self.execute_command(f"rm -f {remote_path}")
-            self.logger.info(f"Cleaned up remote file: {remote_path}")
+            if self.verbose:
+                self.logger.info(f"Cleaned up remote file: {remote_path}")
         except Exception as e:
             self.logger.warning(f"Failed to cleanup file {remote_path}: {e}")
 
@@ -261,8 +267,9 @@ class SSHSlurmClient:
                 if exit_code == 0 and "NOT_FOUND" not in stdout:
                     sbatch_path = stdout.strip()
                     self._slurm_path = sbatch_path.rsplit("/", 1)[0]  # Get directory
-                    self.logger.info(f"Found SLURM at: {self._slurm_path}")
-                    self.logger.debug(f"Full sbatch path: {sbatch_path}")
+                    if self.verbose:
+                        self.logger.info(f"Found SLURM at: {self._slurm_path}")
+                        self.logger.debug(f"Full sbatch path: {sbatch_path}")
                     return
 
             # Fallback: Check common SLURM installation paths
@@ -281,7 +288,8 @@ class SSHSlurmClient:
                 self.logger.debug(f"Checking {path}: {stdout.strip()}")
                 if "FOUND" in stdout:
                     self._slurm_path = path
-                    self.logger.info(f"Found SLURM at: {self._slurm_path}")
+                    if self.verbose:
+                        self.logger.info(f"Found SLURM at: {self._slurm_path}")
                     # Verify permissions
                     stdout, stderr, exit_code = self.execute_command(
                         f"test -x {path}/sbatch && echo 'EXECUTABLE' || echo 'NOT_EXECUTABLE'"
@@ -309,7 +317,8 @@ class SSHSlurmClient:
 
             if exit_code == 0 and "NOT_FOUND" not in stdout and stdout.strip():
                 sbatch_location = stdout.strip()
-                self.logger.info(f"SLURM sbatch verified at: {sbatch_location}")
+                if self.verbose:
+                    self.logger.info(f"SLURM sbatch verified at: {sbatch_location}")
 
                 # Try to get SLURM environment variables after setup
                 env_cmd = (
@@ -327,10 +336,13 @@ class SSHSlurmClient:
                             key, value = line.split("=", 1)
                             env_vars[key] = value
                     self._slurm_env = env_vars
-                    self.logger.info(
-                        f"Captured SLURM environment with {len(env_vars)} variables"
-                    )
-                    self.logger.debug(f"Environment variables: {list(env_vars.keys())}")
+                    if self.verbose:
+                        self.logger.info(
+                            f"Captured SLURM environment with {len(env_vars)} variables"
+                        )
+                        self.logger.debug(
+                            f"Environment variables: {list(env_vars.keys())}"
+                        )
             else:
                 self.logger.warning(
                     f"SLURM sbatch test failed. stdout: {stdout}, stderr: {stderr}"
@@ -418,7 +430,8 @@ class SSHSlurmClient:
             stdout, stderr, exit_code = self._execute_slurm_command(test_cmd)
 
             if exit_code == 0 and "SLURM_NOT_AVAILABLE" not in stdout:
-                self.logger.info(f"SLURM verification successful: {stdout.strip()}")
+                if self.verbose:
+                    self.logger.info(f"SLURM verification successful: {stdout.strip()}")
             else:
                 self.logger.warning(f"SLURM verification failed: {stdout} / {stderr}")
         except Exception as e:
@@ -490,7 +503,8 @@ class SSHSlurmClient:
             job_id_match = re.search(r"Submitted batch job (\d+)", stdout)
             if job_id_match:
                 job_id = job_id_match.group(1)
-                self.logger.info(f"Job submitted successfully with ID: {job_id}")
+                if self.verbose:
+                    self.logger.info(f"Job submitted successfully with ID: {job_id}")
                 return SlurmJob(job_id=job_id, name=job_name or f"job_{job_id}")
             else:
                 self.logger.error(f"Could not parse job ID from output: {stdout}")
@@ -524,7 +538,8 @@ class SSHSlurmClient:
                         f"Local script file not found: {script_path}"
                     )
                 remote_script_path = self.upload_file(script_path_str)
-                self.logger.info(f"Uploaded local script to {remote_script_path}")
+                if self.verbose:
+                    self.logger.info(f"Uploaded local script to {remote_script_path}")
             else:
                 # Use remote file directly - validate it first
                 remote_script_path = script_path_str
@@ -533,8 +548,9 @@ class SSHSlurmClient:
                 )
                 if not is_valid:
                     raise FileNotFoundError(validation_message)
-                self.logger.info(f"Using remote script: {remote_script_path}")
-                self.logger.debug(f"Remote script validation: {validation_message}")
+                if self.verbose:
+                    self.logger.info(f"Using remote script: {remote_script_path}")
+                    self.logger.debug(f"Remote script validation: {validation_message}")
 
             # Submit the job using the script file
             command = "sbatch"
@@ -553,7 +569,8 @@ class SSHSlurmClient:
             job_id_match = re.search(r"Submitted batch job (\d+)", stdout)
             if job_id_match:
                 job_id = job_id_match.group(1)
-                self.logger.info(f"Job submitted successfully with ID: {job_id}")
+                if self.verbose:
+                    self.logger.info(f"Job submitted successfully with ID: {job_id}")
 
                 job = SlurmJob(
                     job_id=job_id,
@@ -677,10 +694,11 @@ class SSHSlurmClient:
                             )
                             error_content += stderr_output
 
-                self.logger.info(
-                    f"Found {len(found_files)} log file(s) for job {job_id}"
-                )
-                self.logger.debug(f"Primary log file: {primary_log}")
+                if self.verbose:
+                    self.logger.info(
+                        f"Found {len(found_files)} log file(s) for job {job_id}"
+                    )
+                    self.logger.debug(f"Primary log file: {primary_log}")
             else:
                 # Fallback to default SLURM patterns in current directory
                 self.logger.warning(
@@ -704,6 +722,128 @@ class SSHSlurmClient:
             self.logger.error(f"Failed to get job output for {job_id}: {e}")
             return "", ""
 
+    def get_job_output_detailed(
+        self, job_id: str, job_name: str | None = None
+    ) -> dict[str, str | list[str] | None]:
+        """Get detailed job output information including found log files"""
+        try:
+            # Try multiple common SLURM log file patterns
+            potential_log_patterns = [
+                # Pattern from SBATCH directives: %x_%j.log (job_name_job_id.log)
+                f"{job_name}_{job_id}.log" if job_name else None,
+                # Common SLURM_LOG_DIR patterns
+                f"*_{job_id}.log",
+                # Default SLURM patterns
+                f"slurm-{job_id}.out",
+                f"slurm-{job_id}.err",
+                # Alternative patterns
+                f"job_{job_id}.log",
+                f"{job_id}.log",
+            ]
+
+            # Remove None values
+            patterns = [p for p in potential_log_patterns if p is not None]
+
+            # Get SLURM_LOG_DIR from remote environment with proper environment setup
+            slurm_log_dir = None
+            env_setup = self._get_slurm_env_setup()
+            cmd = f"{env_setup} && echo ${{SLURM_LOG_DIR:-}}"
+            stdout, stderr, exit_code = self.execute_command(f"bash -l -c '{cmd}'")
+            if self.verbose:
+                self.logger.debug(
+                    f"SLURM_LOG_DIR command result: stdout='{stdout}', stderr='{stderr}', exit_code={exit_code}"
+                )
+            if exit_code == 0 and stdout.strip():
+                slurm_log_dir = stdout.strip()
+                if self.verbose:
+                    self.logger.info(f"Found SLURM_LOG_DIR: {slurm_log_dir}")
+            else:
+                if self.verbose:
+                    self.logger.info("SLURM_LOG_DIR not set on remote server")
+
+            # Common SLURM log directories to search
+            log_dirs = []
+
+            # Add SLURM_LOG_DIR if set
+            if slurm_log_dir:
+                log_dirs.append(slurm_log_dir)
+
+            # Add default directories
+            log_dirs.extend(
+                [
+                    "~/logs/slurm",
+                    "./",  # Current directory
+                    "/tmp",
+                    "/var/log/slurm",
+                    "~/slurm_logs",
+                    "$HOME/logs",
+                ]
+            )
+
+            # Remove None values and duplicates
+            log_dirs = list(dict.fromkeys([d for d in log_dirs if d]))
+
+            found_files = []
+            output_content = ""
+            error_content = ""
+
+            for log_dir in log_dirs:
+                for pattern in patterns:
+                    # Try to find log files with this pattern
+                    find_cmd = f"find {log_dir} -name '{pattern}' -type f 2>/dev/null | head -10"
+                    stdout, stderr, exit_code = self.execute_command(find_cmd)
+
+                    if exit_code == 0 and stdout.strip():
+                        log_files = stdout.strip().split("\n")
+                        for log_file in log_files:
+                            if log_file.strip() and log_file.strip() not in found_files:
+                                found_files.append(log_file.strip())
+
+            # Read content from found log files
+            if found_files:
+                # Sort files by modification time (newest first)
+                quoted_files = [f"'{f}'" for f in found_files]
+                sort_cmd = f"ls -t {' '.join(quoted_files)}"
+                stdout, stderr, exit_code = self.execute_command(sort_cmd)
+                if exit_code == 0 and stdout.strip():
+                    found_files = stdout.strip().split("\n")
+
+                # Use the first (newest) found file as primary output
+                primary_log = found_files[0]
+                stdout_output, _, _ = self.execute_command(
+                    f"cat '{primary_log}' 2>/dev/null || echo 'Could not read log file'"
+                )
+                output_content = stdout_output
+
+                # Collect all error content from all files
+                for log_file in found_files:
+                    if "err" in log_file.lower() or "error" in log_file.lower():
+                        stderr_output, _, _ = self.execute_command(
+                            f"cat '{log_file}' 2>/dev/null || echo ''"
+                        )
+                        if stderr_output.strip():
+                            error_content += f"=== {log_file} ===\n{stderr_output}\n\n"
+
+            return {
+                "output": output_content,
+                "error": error_content,
+                "found_files": found_files,
+                "primary_log": found_files[0] if found_files else None,
+                "slurm_log_dir": slurm_log_dir,
+                "searched_dirs": log_dirs,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Failed to get detailed job output for {job_id}: {e}")
+            return {
+                "output": "",
+                "error": f"Error retrieving logs: {e}",
+                "found_files": [],
+                "primary_log": None,
+                "slurm_log_dir": None,
+                "searched_dirs": [],
+            }
+
     def monitor_job(
         self, job: SlurmJob, poll_interval: int = 10, timeout: int | None = None
     ) -> SlurmJob:
@@ -719,14 +859,18 @@ class SSHSlurmClient:
                 "TIMEOUT",
                 "NOT_FOUND",
             ]:
-                self.logger.info(f"Job {job.job_id} finished with status: {job.status}")
+                if self.verbose:
+                    self.logger.info(
+                        f"Job {job.job_id} finished with status: {job.status}"
+                    )
                 break
 
             if timeout and (time.time() - start_time) > timeout:
                 self.logger.warning(f"Job {job.job_id} monitoring timed out")
                 break
 
-            self.logger.info(f"Job {job.job_id} status: {job.status}")
+            if self.verbose:
+                self.logger.info(f"Job {job.job_id} status: {job.status}")
             time.sleep(poll_interval)
 
         return job
