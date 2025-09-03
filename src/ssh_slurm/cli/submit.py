@@ -485,8 +485,8 @@ def _show_job_logs(client: SSHSlurmClient, job):
         lines = output.split("\n")
         display_output = output
         if len(lines) > max_lines:
-            display_output = "\n".join(lines[:max_lines])
-            display_output += f"\n\n[dim]... (truncated, showing first {max_lines} lines of {len(lines)} total)[/dim]"
+            display_output = "\n".join(lines[-max_lines:])
+            display_output += f"\n\n[dim]... (truncated, showing last {max_lines} lines of {len(lines)} total)[/dim]"
 
         # Try to detect if this is structured log output
         log_content: RenderableType
