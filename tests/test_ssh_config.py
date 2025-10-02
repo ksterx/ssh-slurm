@@ -102,6 +102,7 @@ Host dgx-*
 
 Host proxy-test
     HostName internal.example.com
+    User internaluser
     ProxyCommand ssh bastion nc %h %p
 
 Host *
@@ -160,6 +161,7 @@ Host *
     def test_parse_proxy_settings(self, temp_ssh_config):
         config = """Host proxied
     HostName internal.example.com
+    User internaluser
     ProxyJump bastion.example.com
     ProxyCommand ssh proxy nc %h %p
     ForwardAgent yes
